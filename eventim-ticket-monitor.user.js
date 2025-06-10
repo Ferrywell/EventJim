@@ -56,30 +56,38 @@
         if (document.getElementById('eventim-monitor-gui')) return;
         const gui = document.createElement('div');
         gui.id = 'eventim-monitor-gui';
-        gui.style.cssText = 'position:fixed;top:40px;right:40px;z-index:99999;width:350px;background:#fff;border:2px solid #1e3c72;border-radius:10px;box-shadow:0 8px 32px rgba(30,60,114,0.18);font-family:Helvetica,Arial,sans-serif;';
+        gui.style.cssText = 'position:fixed;top:40px;right:40px;z-index:99999;width:350px;background:#fff;border:2px solid #1e3c72;border-radius:12px;box-shadow:0 8px 32px rgba(30,60,114,0.18);font-family:Helvetica,Arial,sans-serif;user-select:none;';
         gui.innerHTML = `
-            <div style="background:linear-gradient(90deg,#1e3c72 0%,#2a5298 100%);color:#fff;padding:14px 18px 10px 18px;font-size:1.18rem;font-weight:700;letter-spacing:1px;display:flex;align-items:center;justify-content:space-between;border-radius:10px 10px 0 0;">
+            <div id="etm-gui-header" style="background:linear-gradient(90deg,#1e3c72 0%,#2a5298 100%);color:#fff;padding:14px 18px 10px 18px;font-size:1.18rem;font-weight:700;letter-spacing:1px;display:flex;align-items:center;justify-content:space-between;border-radius:12px 12px 0 0;cursor:move;">
                 <span>Eventim Ticket Monitor</span>
                 <button id="etm-close-btn" style="background:none;border:none;color:#fff;font-size:1.2em;cursor:pointer;">&times;</button>
             </div>
+            <div id="etm-status-bar" style="background:#f8fafc;color:#1e3c72;font-size:13px;padding:7px 16px;border-radius:0 0 12px 12px  ;border-top:1px solid #e3e6f0;display:flex;align-items:center;gap:12px;justify-content:space-between;"></div>
+            <div id="etm-notification" style="display:none;padding:8px 14px;font-size:13px;color:#fff;background:#1e3c72;border-radius:0 0 12px 12px  ;margin-bottom:8px;"></div>
             <div style="padding:18px;">
-                <div style="margin-bottom:16px;">
-                    <label>Webhook URL:</label>
-                    <input id="webhook-input" type="text" style="width:100%;margin-bottom:6px;" placeholder="https://discord.com/api/webhooks/...">
-                    <label>Notify User:</label>
-                    <input id="notify-user-input" type="text" style="width:100%;margin-bottom:6px;" placeholder="@username or Discord ID">
-                    <button id="test-webhook-btn" style="margin-bottom:8px;">Test Webhook</button>
-                    <span id="webhook-status" style="margin-left:8px;font-size:0.97em;"></span>
+                <div class="etm-collapsible" style="margin-bottom:12px;">
+                    <div class="etm-collapser" style="font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;">⚙️ Settings <span class="etm-arrow">▼</span></div>
+                    <div class="etm-collapsible-content">
+                        <label>Check Interval (sec):</label>
+                        <input id="check-interval" type="number" min="5" max="60" style="width:100%;margin-bottom:6px;">
+                        <label>Refresh Interval (sec):</label>
+                        <input id="refresh-interval" type="number" min="10" max="300" style="width:100%;margin-bottom:6px;">
+                        <label>Ticket Quantity:</label>
+                        <input id="ticket-quantity" type="number" min="1" max="10" style="width:100%;margin-bottom:6px;">
+                    </div>
                 </div>
-                <div style="margin-bottom:16px;">
-                    <label>Check Interval (sec):</label>
-                    <input id="check-interval" type="number" min="5" max="60" style="width:100%;margin-bottom:6px;">
-                    <label>Refresh Interval (sec):</label>
-                    <input id="refresh-interval" type="number" min="10" max="300" style="width:100%;margin-bottom:6px;">
-                    <label>Discord Update (min):</label>
-                    <input id="discord-interval" type="number" min="1" max="60" style="width:100%;margin-bottom:6px;">
-                    <label>Ticket Quantity:</label>
-                    <input id="ticket-quantity" type="number" min="1" max="10" style="width:100%;margin-bottom:6px;">
+                <div class="etm-collapsible" style="margin-bottom:12px;">
+                    <div class="etm-collapser" style="font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;">💬 Discord <span class="etm-arrow">▼</span></div>
+                    <div class="etm-collapsible-content">
+                        <label>Webhook URL:</label>
+                        <input id="webhook-input" type="text" style="width:100%;margin-bottom:6px;" placeholder="https://discord.com/api/webhooks/...">
+                        <label>Notify User:</label>
+                        <input id="notify-user-input" type="text" style="width:100%;margin-bottom:6px;" placeholder="@username or Discord ID">
+                        <label>Discord Update (min):</label>
+                        <input id="discord-interval" type="number" min="1" max="60" style="width:100%;margin-bottom:6px;">
+                        <button id="test-webhook-btn" style="margin-bottom:8px;">Test Webhook</button>
+                        <span id="webhook-status" style="margin-left:8px;font-size:0.97em;"></span>
+                    </div>
                 </div>
                 <div style="margin-bottom:16px;">
                     <button id="eyedropper-btn" style="margin-bottom:8px;">Select Element</button>
@@ -90,11 +98,67 @@
                     <button id="stop-btn">Stop</button>
                     <button id="refresh-btn">Refresh</button>
                 </div>
-                <div id="status-content" style="font-size:13px;color:#495057;margin-bottom:8px;"></div>
             </div>
-            <div style="background:#f8fafc;color:#495057;font-size:0.95em;text-align:center;padding:10px 0 10px 0;border-radius:0 0 10px 10px;">© Ferrywell - Private Use Only</div>
+            <div style="background:#f8fafc;color:#495057;font-size:0.95em;text-align:center;padding:10px 0 10px 0;border-radius:0 0 12px 12px;">© Ferrywell - Private Use Only</div>
         `;
         document.body.appendChild(gui);
+    }
+
+    // --- Collapsible Sections ---
+    function setupCollapsibles() {
+        document.querySelectorAll('.etm-collapser').forEach(collapser => {
+            collapser.onclick = function() {
+                const content = this.nextElementSibling;
+                const arrow = this.querySelector('.etm-arrow');
+                if (content.style.display === 'none') {
+                    content.style.display = '';
+                    arrow.textContent = '▼';
+                } else {
+                    content.style.display = 'none';
+                    arrow.textContent = '►';
+                }
+            };
+        });
+        // Start with all open
+        document.querySelectorAll('.etm-collapsible-content').forEach(c => c.style.display = '');
+    }
+
+    // --- Draggable GUI ---
+    function makeDraggable(el, handle) {
+        let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+        handle.onmousedown = dragMouseDown;
+        function dragMouseDown(e) {
+            e.preventDefault();
+            pos3 = e.clientX;
+            pos4 = e.clientY;
+            document.onmouseup = closeDragElement;
+            document.onmousemove = elementDrag;
+        }
+        function elementDrag(e) {
+            e.preventDefault();
+            pos1 = pos3 - e.clientX;
+            pos2 = pos4 - e.clientY;
+            pos3 = e.clientX;
+            pos4 = e.clientY;
+            el.style.top = (el.offsetTop - pos2) + "px";
+            el.style.left = (el.offsetLeft - pos1) + "px";
+        }
+        function closeDragElement() {
+            document.onmouseup = null;
+            document.onmousemove = null;
+        }
+    }
+
+    // --- Notification Helper ---
+    let notificationTimeout = null;
+    function showNotification(msg, color = '#1e3c72') {
+        const note = document.getElementById('etm-notification');
+        if (!note) return;
+        note.textContent = msg;
+        note.style.background = color;
+        note.style.display = 'block';
+        if (notificationTimeout) clearTimeout(notificationTimeout);
+        notificationTimeout = setTimeout(() => { note.style.display = 'none'; }, 4000);
     }
 
     // --- GUI Update ---
@@ -107,7 +171,7 @@
         document.getElementById('webhook-input').value = config.webhookUrl || '';
         document.getElementById('notify-user-input').value = config.notifyUser || '';
         updateMonitoringInfo();
-        updateStatusDisplay();
+        updateStatusBar();
         updateWebhookStatus();
     }
 
@@ -139,19 +203,19 @@
         }
     }
 
-    // --- Status Display ---
-    function updateStatusDisplay() {
-        const statusEl = document.getElementById('status-content');
+    // --- Status Bar Update ---
+    function updateStatusBar() {
+        const statusEl = document.getElementById('etm-status-bar');
         if (!statusEl) return;
         let status = '';
         if (ticketsFound) {
-            status = '<span style="color:#28a745;">Tickets Found!</span>';
+            status = '<span style="color:#28a745;font-weight:600;">Tickets in cart!</span>';
         } else if (isMonitoring) {
             status = '<span style="color:#1e3c72;">Monitoring...</span>';
         } else {
             status = '<span style="color:#ffc107;">Stopped</span>';
         }
-        statusEl.innerHTML = `Status: ${status}<br>Checks: ${checkCount}`;
+        statusEl.innerHTML = `Status: ${status} <span>Checks: ${checkCount}</span>`;
     }
 
     // --- Save Settings from GUI ---
@@ -169,7 +233,7 @@
     // --- Webhook Test ---
     function testWebhook() {
         const url = document.getElementById('webhook-input').value.trim();
-        if (!url) { alert('Please enter a webhook URL first'); return; }
+        if (!url) { showNotification('Please enter a webhook URL first', '#dc3545'); return; }
         fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -183,24 +247,24 @@
             })
         }).then(function(response) {
             if (response.ok) {
-                alert('Webhook test successful!');
+                showNotification('Webhook test successful!', '#28a745');
             } else {
-                alert('Webhook test failed. Check your URL.');
+                showNotification('Webhook test failed. Check your URL.', '#dc3545');
             }
         }).catch(function(error) {
-            alert('Webhook test failed: ' + error.message);
+            showNotification('Webhook test failed: ' + error.message, '#dc3545');
         });
     }
 
     // --- Element Picker ---
     function startElementSelection() {
-        if (isSelectingElement) { stopElementSelection(); return; }
+        if (isSelectingElement) stopElementSelection(); return;
         isSelectingElement = true;
         document.body.style.cursor = 'crosshair';
         document.addEventListener('mouseover', highlightElement);
         document.addEventListener('click', selectElement, true);
         document.addEventListener('keydown', cancelSelection);
-        alert('Element selection mode active. Click on the + button you want to monitor.');
+        showNotification('Element selection mode active. Click the + button you want to monitor.', '#ffc107');
     }
     function stopElementSelection() {
         isSelectingElement = false;
@@ -233,7 +297,7 @@
         stopElementSelection();
         highlightSelectedElement();
         updateMonitoringInfo();
-        alert('Element selected: ' + config.selectedElementName);
+        showNotification('Element selected: ' + config.selectedElementName, '#28a745');
     }
     function cancelSelection(event) {
         if (event.key === 'Escape') stopElementSelection();
@@ -266,36 +330,72 @@
         return element.tagName;
     }
 
-    // --- Monitoring Logic (stub, can be expanded) ---
+    // --- Monitoring Logic (robust, auto-purchase) ---
     function startMonitoring() {
         if (isMonitoring) return;
         isMonitoring = true;
         ticketsFound = false;
         checkCount = 0;
-        updateStatusDisplay();
-        monitorInterval = setInterval(checkButtonAvailability, config.checkInterval);
+        updateStatusBar();
+        monitorInterval = setInterval(checkAndBuyTickets, config.checkInterval);
+        checkAndBuyTickets(); // Run immediately
     }
     function stopMonitoring() {
         isMonitoring = false;
         if (monitorInterval) clearInterval(monitorInterval);
         monitorInterval = null;
-        updateStatusDisplay();
+        updateStatusBar();
     }
-    function checkButtonAvailability() {
+    async function checkAndBuyTickets() {
         checkCount++;
-        updateStatusDisplay();
+        updateStatusBar();
         let btn = null;
         if (config.selectedElementSelector) {
             btn = document.querySelector(config.selectedElementSelector);
         }
         if (!btn) return;
-        const isDisabled = btn.disabled || btn.classList.contains('disabled');
-        if (!isDisabled) {
-            ticketsFound = true;
-            updateStatusDisplay();
-            stopMonitoring();
-            alert('Tickets available!');
+        // If button is disabled, tickets not available
+        if (btn.disabled || btn.classList.contains('disabled')) return;
+        // Click the + button the correct number of times
+        for (let i = 0; i < config.ticketQuantity; i++) {
+            btn.click();
+            await new Promise(r => setTimeout(r, 200));
         }
+        // Wait for cart/checkout button to become active
+        let cartBtn = await waitForCartButton();
+        if (cartBtn) {
+            cartBtn.click();
+            ticketsFound = true;
+            updateStatusBar();
+            stopMonitoring();
+            showNotification('Tickets added to cart! Proceeding to checkout...', '#28a745');
+            // Optionally, auto-proceed to checkout if another button appears
+            let checkoutBtn = await waitForCheckoutButton();
+            if (checkoutBtn) checkoutBtn.click();
+        }
+    }
+    function waitForCartButton(timeout = 5000) {
+        return new Promise(resolve => {
+            const start = Date.now();
+            (function check() {
+                // Try common selectors for cart/checkout button
+                let btn = document.querySelector('[data-qa="cart-button"], .add-to-cart, .btn-cart, button[aria-label*="cart"], button[aria-label*="Checkout"], button[data-qa*="checkout"]');
+                if (btn && !btn.disabled && !btn.classList.contains('disabled')) return resolve(btn);
+                if (Date.now() - start > timeout) return resolve(null);
+                setTimeout(check, 200);
+            })();
+        });
+    }
+    function waitForCheckoutButton(timeout = 5000) {
+        return new Promise(resolve => {
+            const start = Date.now();
+            (function check() {
+                let btn = document.querySelector('button[data-qa*="checkout"], button[aria-label*="Checkout"], .btn-checkout');
+                if (btn && !btn.disabled && !btn.classList.contains('disabled')) return resolve(btn);
+                if (Date.now() - start > timeout) return resolve(null);
+                setTimeout(check, 200);
+            })();
+        });
     }
 
     // --- Bind Events ---
@@ -314,6 +414,9 @@
         document.getElementById('ticket-quantity').onchange = saveSettingsFromGUI;
         document.getElementById('webhook-input').onchange = saveSettingsFromGUI;
         document.getElementById('notify-user-input').onchange = saveSettingsFromGUI;
+        setupCollapsibles();
+        // Make GUI draggable
+        makeDraggable(document.getElementById('eventim-monitor-gui'), document.getElementById('etm-gui-header'));
     }
 
     // --- Initialization ---
