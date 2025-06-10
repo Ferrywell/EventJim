@@ -34,4 +34,4 @@ To update the script:
 
 ## License
 
-Private use only. © Ferrywell 
+Private use only. © Ferrywell
