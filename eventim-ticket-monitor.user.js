@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Eventim Rock am Ring 2026 Ticket Monitor
 // @namespace    http://tampermonkey.net/
-// @version      2.2
+// @version      2.2.1
 // @description  Monitor Rock am Ring 2026 tickets with GUI controls (refactored and improved)
 // @author       Ferrywell
 // @match        https://www.eventim.de/en/event/rock-am-ring-2026-camping-tickets-nuerburgring-20314942/*
