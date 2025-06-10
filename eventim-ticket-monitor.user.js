@@ -151,19 +151,25 @@
 
     // --- Notification Helper ---
     let notificationTimeout = null;
-    function showNotification(msg, color = '#1e3c72') {
+    function showNotification(msg, color = '#1e3c72', persist = false) {
         const note = document.getElementById('etm-notification');
         if (!note) return;
         note.textContent = msg;
         note.style.background = color;
         note.style.display = 'block';
         if (notificationTimeout) clearTimeout(notificationTimeout);
-        notificationTimeout = setTimeout(() => { note.style.display = 'none'; }, 4000);
+        if (!persist) {
+            notificationTimeout = setTimeout(() => { note.style.display = 'none'; }, 4000);
+        }
+    }
+
+    // --- Debug Logger ---
+    function logDebug(...args) {
+        console.log('[EventimMonitor]', ...args);
     }
 
     // --- GUI Update ---
     function updateGUI() {
-        // Set input values from config
         document.getElementById('check-interval').value = config.checkInterval / 1000;
         document.getElementById('refresh-interval').value = config.refreshInterval / 1000;
         document.getElementById('discord-interval').value = config.discordUpdateInterval / 60000;
@@ -218,6 +224,23 @@
         statusEl.innerHTML = `Status: ${status} <span>Checks: ${checkCount}</span>`;
     }
 
+    // --- Auto-Refresh Logic ---
+    let refreshIntervalId = null;
+    function startAutoRefresh() {
+        if (refreshIntervalId) clearInterval(refreshIntervalId);
+        if (config.refreshInterval > 0) {
+            refreshIntervalId = setInterval(() => {
+                logDebug('Auto-refreshing page');
+                showNotification('Auto-refreshing page...', '#1e3c72');
+                window.location.reload();
+            }, config.refreshInterval);
+        }
+    }
+    function stopAutoRefresh() {
+        if (refreshIntervalId) clearInterval(refreshIntervalId);
+        refreshIntervalId = null;
+    }
+
     // --- Save Settings from GUI ---
     function saveSettingsFromGUI() {
         config.checkInterval = parseInt(document.getElementById('check-interval').value) * 1000;
@@ -258,13 +281,14 @@
 
     // --- Element Picker ---
     function startElementSelection() {
-        if (isSelectingElement) stopElementSelection(); return;
+        if (isSelectingElement) { stopElementSelection(); return; }
         isSelectingElement = true;
         document.body.style.cursor = 'crosshair';
         document.addEventListener('mouseover', highlightElement);
         document.addEventListener('click', selectElement, true);
         document.addEventListener('keydown', cancelSelection);
-        showNotification('Element selection mode active. Click the + button you want to monitor.', '#ffc107');
+        showNotification('Element selection mode active. Click the + button you want to monitor.', '#ffc107', true);
+        logDebug('Element picker activated');
     }
     function stopElementSelection() {
         isSelectingElement = false;
@@ -273,6 +297,7 @@
         document.removeEventListener('click', selectElement, true);
         document.removeEventListener('keydown', cancelSelection);
         removeTemporaryHighlight();
+        logDebug('Element picker deactivated');
     }
     function highlightElement(event) {
         if (!isSelectingElement) return;
@@ -297,7 +322,8 @@
         stopElementSelection();
         highlightSelectedElement();
         updateMonitoringInfo();
-        showNotification('Element selected: ' + config.selectedElementName, '#28a745');
+        showNotification('Element selected: ' + config.selectedElementName, '#28a745', true);
+        logDebug('Element selected:', config.selectedElementName, config.selectedElementSelector);
     }
     function cancelSelection(event) {
         if (event.key === 'Escape') stopElementSelection();
@@ -330,48 +356,64 @@
         return element.tagName;
     }
 
-    // --- Monitoring Logic (robust, auto-purchase) ---
+    // --- Monitoring Logic (robust, auto-purchase, feedback) ---
     function startMonitoring() {
         if (isMonitoring) return;
         isMonitoring = true;
         ticketsFound = false;
         checkCount = 0;
         updateStatusBar();
+        showNotification('Monitoring started.', '#1e3c72');
+        logDebug('Monitoring started');
         monitorInterval = setInterval(checkAndBuyTickets, config.checkInterval);
         checkAndBuyTickets(); // Run immediately
+        startAutoRefresh();
     }
     function stopMonitoring() {
         isMonitoring = false;
         if (monitorInterval) clearInterval(monitorInterval);
         monitorInterval = null;
+        stopAutoRefresh();
         updateStatusBar();
+        showNotification('Monitoring stopped.', '#ffc107');
+        logDebug('Monitoring stopped');
     }
     async function checkAndBuyTickets() {
         checkCount++;
         updateStatusBar();
+        showNotification('Checking for tickets... (Check #' + checkCount + ')', '#1e3c72');
+        logDebug('Checking for tickets...', 'Check #' + checkCount);
         let btn = null;
         if (config.selectedElementSelector) {
             btn = document.querySelector(config.selectedElementSelector);
         }
-        if (!btn) return;
-        // If button is disabled, tickets not available
-        if (btn.disabled || btn.classList.contains('disabled')) return;
-        // Click the + button the correct number of times
+        if (!btn) {
+            showNotification('Selected element not found on page.', '#dc3545', true);
+            logDebug('Selected element not found:', config.selectedElementSelector);
+            return;
+        }
+        if (btn.disabled || btn.classList.contains('disabled')) {
+            showNotification('Tickets not available yet.', '#ffc107');
+            logDebug('Tickets not available yet.');
+            return;
+        }
         for (let i = 0; i < config.ticketQuantity; i++) {
             btn.click();
             await new Promise(r => setTimeout(r, 200));
         }
-        // Wait for cart/checkout button to become active
         let cartBtn = await waitForCartButton();
         if (cartBtn) {
             cartBtn.click();
             ticketsFound = true;
             updateStatusBar();
             stopMonitoring();
-            showNotification('Tickets added to cart! Proceeding to checkout...', '#28a745');
-            // Optionally, auto-proceed to checkout if another button appears
+            showNotification('Tickets added to cart! Proceeding to checkout...', '#28a745', true);
+            logDebug('Tickets added to cart! Proceeding to checkout...');
             let checkoutBtn = await waitForCheckoutButton();
-            if (checkoutBtn) checkoutBtn.click();
+            if (checkoutBtn) {
+                checkoutBtn.click();
+                logDebug('Proceeded to checkout.');
+            }
         }
     }
     function waitForCartButton(timeout = 5000) {
