@@ -9,6 +9,8 @@
 // @match        *://www.eventim.de/en/event/rock-am-ring-2026-camping-tickets-nuerburgring-20314942/*
 // @grant        none
 // @run-at       document-ready
+// @updateURL    https://raw.githubusercontent.com/Ferrywell/EventJim/main/eventim-ticket-monitor.user.js
+// @downloadURL  https://raw.githubusercontent.com/Ferrywell/EventJim/main/eventim-ticket-monitor.user.js
 // ==/UserScript==
 
 (function() {
