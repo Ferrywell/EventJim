@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Eventim Rock am Ring 2026 Ticket Monitor
 // @namespace    http://tampermonkey.net/
-// @version      2.2.1
+// @version      2.2.2
 // @description  Monitor Rock am Ring 2026 tickets with GUI controls (refactored and improved)
 // @author       Ferrywell
 // @match        https://www.eventim.de/en/event/rock-am-ring-2026-camping-tickets-nuerburgring-20314942/*
@@ -26,7 +26,11 @@
         webhookUrl: '',
         notifyUser: '',
         selectedElementSelector: '',
-        selectedElementName: ''
+        selectedElementName: '',
+        guiCollapsedStates: {
+            settings: false,
+            discord: false
+        }
     };
     let monitorInterval = null;
     let checkCount = 0;
@@ -42,13 +46,18 @@
     function loadSettings() {
         try {
             const saved = localStorage.getItem('eventim_monitor_settings');
-            if (saved) Object.assign(config, JSON.parse(saved));
-        } catch (e) { console.log('Could not load settings:', e); }
+            if (saved) {
+                Object.assign(config, JSON.parse(saved));
+                const savedData = JSON.parse(saved);
+                checkCount = savedData.checkCount !== undefined ? savedData.checkCount : 0;
+            }
+        } catch (e) { logDebug('Could not load settings:', e); }
     }
     function saveSettings() {
         try {
-            localStorage.setItem('eventim_monitor_settings', JSON.stringify(config));
-        } catch (e) { console.log('Could not save settings:', e); }
+            const settingsToSave = { ...config, checkCount: checkCount };
+            localStorage.setItem('eventim_monitor_settings', JSON.stringify(settingsToSave));
+        } catch (e) { logDebug('Could not save settings:', e); }
     }
 
     // --- GUI Creation ---
@@ -56,16 +65,16 @@
         if (document.getElementById('eventim-monitor-gui')) return;
         const gui = document.createElement('div');
         gui.id = 'eventim-monitor-gui';
-        gui.style.cssText = 'position:fixed;top:40px;right:40px;z-index:99999;width:350px;background:#fff;border:2px solid #1e3c72;border-radius:12px;box-shadow:0 8px 32px rgba(30,60,114,0.18);font-family:Helvetica,Arial,sans-serif;user-select:none;';
+        gui.style.cssText = 'position:fixed;top:40px;right:40px;z-index:99999;width:350px;background:#fff;border:2px solid #1e3c72;border-radius:8px;box-shadow:0 8px 32px rgba(30,60,114,0.18);font-family:Helvetica,Arial,sans-serif;user-select:none;';
         gui.innerHTML = `
-            <div id="etm-gui-header" style="background:linear-gradient(90deg,#1e3c72 0%,#2a5298 100%);color:#fff;padding:14px 18px 10px 18px;font-size:1.18rem;font-weight:700;letter-spacing:1px;display:flex;align-items:center;justify-content:space-between;border-radius:12px 12px 0 0;cursor:move;">
+            <div id="etm-gui-header" style="background:linear-gradient(90deg,#1e3c72 0%,#2a5298 100%);color:#fff;padding:14px 18px 10px 18px;font-size:1.18rem;font-weight:700;letter-spacing:1px;display:flex;align-items:center;justify-content:space-between;border-radius:8px 8px 0 0;cursor:move;">
                 <span>Eventim Ticket Monitor</span>
                 <button id="etm-close-btn" style="background:none;border:none;color:#fff;font-size:1.2em;cursor:pointer;">&times;</button>
             </div>
-            <div id="etm-status-bar" style="background:#f8fafc;color:#1e3c72;font-size:13px;padding:7px 16px;border-radius:0 0 12px 12px  ;border-top:1px solid #e3e6f0;display:flex;align-items:center;gap:12px;justify-content:space-between;"></div>
-            <div id="etm-notification" style="display:none;padding:8px 14px;font-size:13px;color:#fff;background:#1e3c72;border-radius:0 0 12px 12px  ;margin-bottom:8px;"></div>
+            <div id="etm-status-bar" style="background:#f8fafc;color:#1e3c72;font-size:13px;padding:7px 16px;border-radius:0 0 8px 8px  ;border-top:1px solid #e3e6f0;display:flex;align-items:center;gap:12px;justify-content:space-between;"></div>
+            <div id="etm-notification" style="display:none;padding:8px 14px;font-size:13px;color:#fff;background:#1e3c72;border-radius:0 0 8px 8px  ;margin-bottom:8px;"></div>
             <div style="padding:18px;">
-                <div class="etm-collapsible" style="margin-bottom:12px;">
+                <div class="etm-collapsible" data-section="settings" style="margin-bottom:12px;">
                     <div class="etm-collapser" style="font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;">⚙️ Settings <span class="etm-arrow">▼</span></div>
                     <div class="etm-collapsible-content">
                         <label>Check Interval (sec):</label>
@@ -76,7 +85,7 @@
                         <input id="ticket-quantity" type="number" min="1" max="10" style="width:100%;margin-bottom:6px;">
                     </div>
                 </div>
-                <div class="etm-collapsible" style="margin-bottom:12px;">
+                <div class="etm-collapsible" data-section="discord" style="margin-bottom:12px;">
                     <div class="etm-collapser" style="font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;">💬 Discord <span class="etm-arrow">▼</span></div>
                     <div class="etm-collapsible-content">
                         <label>Webhook URL:</label>
@@ -91,7 +100,6 @@
                 </div>
                 <div style="margin-bottom:16px;">
                     <button id="eyedropper-btn" style="margin-bottom:8px;">Select Element</button>
-                    <button id="test-partial-btn" style="margin-bottom:8px;">Test Partial Check</button>
                     <div id="monitoring-info" style="font-size:12px;color:#1e3c72;margin-bottom:8px;"></div>
                 </div>
                 <div style="margin-bottom:16px;">
@@ -100,28 +108,40 @@
                     <button id="refresh-btn">Refresh</button>
                 </div>
             </div>
-            <div style="background:#f8fafc;color:#495057;font-size:0.95em;text-align:center;padding:10px 0 10px 0;border-radius:0 0 12px 12px;">© Ferrywell - Private Use Only</div>
+            <div style="background:#f8fafc;color:#495057;font-size:0.95em;text-align:center;padding:10px 0 10px 0;border-radius:0 0 8px 8px;">© Ferrywell - Private Use Only</div>
         `;
         document.body.appendChild(gui);
     }
 
     // --- Collapsible Sections ---
     function setupCollapsibles() {
-        document.querySelectorAll('.etm-collapser').forEach(collapser => {
+        document.querySelectorAll('.etm-collapsible').forEach(collapsibleDiv => {
+            const collapser = collapsibleDiv.querySelector('.etm-collapser');
+            const content = collapsibleDiv.querySelector('.etm-collapsible-content');
+            const arrow = collapsibleDiv.querySelector('.etm-arrow');
+            const section = collapsibleDiv.dataset.section;
+
+            if (config.guiCollapsedStates[section] === true) {
+                content.style.display = 'none';
+                arrow.textContent = '►';
+            } else {
+                content.style.display = '';
+                arrow.textContent = '▼';
+            }
+
             collapser.onclick = function() {
-                const content = this.nextElementSibling;
-                const arrow = this.querySelector('.etm-arrow');
                 if (content.style.display === 'none') {
                     content.style.display = '';
                     arrow.textContent = '▼';
+                    config.guiCollapsedStates[section] = false;
                 } else {
                     content.style.display = 'none';
                     arrow.textContent = '►';
+                    config.guiCollapsedStates[section] = true;
                 }
+                saveSettings();
             };
         });
-        // Start with all open
-        document.querySelectorAll('.etm-collapsible-content').forEach(c => c.style.display = '');
     }
 
     // --- Draggable GUI ---
@@ -357,49 +377,11 @@
         return element.tagName;
     }
 
-    // --- Partial Check Logic ---
-    async function partialTicketCheck() {
-        if (!config.selectedElementSelector) {
-            showNotification('No element selected for partial check.', '#dc3545');
-            logDebug('Partial check: No element selected');
-            return;
-        }
-        try {
-            const resp = await fetch(window.location.href, { credentials: 'same-origin' });
-            const html = await resp.text();
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
-            const btn = doc.querySelector(config.selectedElementSelector);
-            if (!btn) {
-                showNotification('Partial check: Button not found in fetched HTML.', '#dc3545');
-                logDebug('Partial check: Button not found in fetched HTML');
-                return;
-            }
-            const isEnabled = !(btn.disabled || btn.classList.contains('disabled'));
-            showNotification('Partial check: Button is ' + (isEnabled ? 'ENABLED' : 'DISABLED'), isEnabled ? '#28a745' : '#ffc107');
-            logDebug('Partial check: Button state:', isEnabled ? 'ENABLED' : 'DISABLED');
-        } catch (e) {
-            showNotification('Partial check failed: ' + e.message, '#dc3545');
-            logDebug('Partial check failed:', e);
-        }
-    }
-
-    // --- Resume Monitoring After Reload ---
-    function saveMonitoringState() {
-        localStorage.setItem('eventim_monitor_active', isMonitoring ? 'true' : 'false');
-    }
-    function restoreMonitoringState() {
-        if (localStorage.getItem('eventim_monitor_active') === 'true') {
-            startMonitoring();
-        }
-    }
-
-    // --- Monitoring Logic (add save state on reload) ---
+    // --- Monitoring Logic (robust, auto-purchase, feedback) ---
     function startMonitoring() {
         if (isMonitoring) return;
         isMonitoring = true;
         ticketsFound = false;
-        checkCount = 0;
         updateStatusBar();
         showNotification('Monitoring started.', '#1e3c72');
         logDebug('Monitoring started');
@@ -420,6 +402,7 @@
     }
     async function checkAndBuyTickets() {
         checkCount++;
+        saveSettings();
         updateStatusBar();
         showNotification('Checking for tickets... (Check #' + checkCount + ')', '#1e3c72');
         logDebug('Checking for tickets...', 'Check #' + checkCount);
@@ -460,7 +443,6 @@
         return new Promise(resolve => {
             const start = Date.now();
             (function check() {
-                // Try common selectors for cart/checkout button
                 let btn = document.querySelector('[data-qa="cart-button"], .add-to-cart, .btn-cart, button[aria-label*="cart"], button[aria-label*="Checkout"], button[data-qa*="checkout"]');
                 if (btn && !btn.disabled && !btn.classList.contains('disabled')) return resolve(btn);
                 if (Date.now() - start > timeout) return resolve(null);
@@ -480,14 +462,13 @@
         });
     }
 
-    // --- Bind Events (add test partial button) ---
+    // --- Bind Events ---
     function bindEvents() {
         document.getElementById('etm-close-btn').onclick = function() {
             document.getElementById('eventim-monitor-gui').style.display = 'none';
         };
         document.getElementById('test-webhook-btn').onclick = testWebhook;
         document.getElementById('eyedropper-btn').onclick = startElementSelection;
-        document.getElementById('test-partial-btn').onclick = partialTicketCheck;
         document.getElementById('start-btn').onclick = function() { saveSettingsFromGUI(); startMonitoring(); };
         document.getElementById('stop-btn').onclick = stopMonitoring;
         document.getElementById('refresh-btn').onclick = function() { saveMonitoringState(); window.location.reload(); };
@@ -498,7 +479,6 @@
         document.getElementById('webhook-input').onchange = saveSettingsFromGUI;
         document.getElementById('notify-user-input').onchange = saveSettingsFromGUI;
         setupCollapsibles();
-        // Make GUI draggable
         makeDraggable(document.getElementById('eventim-monitor-gui'), document.getElementById('etm-gui-header'));
     }
 
