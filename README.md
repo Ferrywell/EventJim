@@ -15,8 +15,7 @@ A Tampermonkey userscript to monitor and automatically purchase tickets for Rock
 ## Installation
 
 1. Install [Tampermonkey](https://www.tampermonkey.net/) for your browser
-2. Click [this link](https://raw.githubusercontent.com/YOUR_USERNAME/eventjim/main/eventim-ticket-monitor.user.js) to install the script
-   (Replace `YOUR_USERNAME` with your GitHub username)
+2. Click [this link](https://raw.githubusercontent.com/Ferrywell/EventJim/main/eventim-ticket-monitor.user.js) to install the script
 
 ## Usage
 
