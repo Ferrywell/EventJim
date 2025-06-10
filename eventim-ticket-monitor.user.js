@@ -91,6 +91,7 @@
                 </div>
                 <div style="margin-bottom:16px;">
                     <button id="eyedropper-btn" style="margin-bottom:8px;">Select Element</button>
+                    <button id="test-partial-btn" style="margin-bottom:8px;">Test Partial Check</button>
                     <div id="monitoring-info" style="font-size:12px;color:#1e3c72;margin-bottom:8px;"></div>
                 </div>
                 <div style="margin-bottom:16px;">
@@ -356,7 +357,44 @@
         return element.tagName;
     }
 
-    // --- Monitoring Logic (robust, auto-purchase, feedback) ---
+    // --- Partial Check Logic ---
+    async function partialTicketCheck() {
+        if (!config.selectedElementSelector) {
+            showNotification('No element selected for partial check.', '#dc3545');
+            logDebug('Partial check: No element selected');
+            return;
+        }
+        try {
+            const resp = await fetch(window.location.href, { credentials: 'same-origin' });
+            const html = await resp.text();
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const btn = doc.querySelector(config.selectedElementSelector);
+            if (!btn) {
+                showNotification('Partial check: Button not found in fetched HTML.', '#dc3545');
+                logDebug('Partial check: Button not found in fetched HTML');
+                return;
+            }
+            const isEnabled = !(btn.disabled || btn.classList.contains('disabled'));
+            showNotification('Partial check: Button is ' + (isEnabled ? 'ENABLED' : 'DISABLED'), isEnabled ? '#28a745' : '#ffc107');
+            logDebug('Partial check: Button state:', isEnabled ? 'ENABLED' : 'DISABLED');
+        } catch (e) {
+            showNotification('Partial check failed: ' + e.message, '#dc3545');
+            logDebug('Partial check failed:', e);
+        }
+    }
+
+    // --- Resume Monitoring After Reload ---
+    function saveMonitoringState() {
+        localStorage.setItem('eventim_monitor_active', isMonitoring ? 'true' : 'false');
+    }
+    function restoreMonitoringState() {
+        if (localStorage.getItem('eventim_monitor_active') === 'true') {
+            startMonitoring();
+        }
+    }
+
+    // --- Monitoring Logic (add save state on reload) ---
     function startMonitoring() {
         if (isMonitoring) return;
         isMonitoring = true;
@@ -368,6 +406,7 @@
         monitorInterval = setInterval(checkAndBuyTickets, config.checkInterval);
         checkAndBuyTickets(); // Run immediately
         startAutoRefresh();
+        saveMonitoringState();
     }
     function stopMonitoring() {
         isMonitoring = false;
@@ -377,6 +416,7 @@
         updateStatusBar();
         showNotification('Monitoring stopped.', '#ffc107');
         logDebug('Monitoring stopped');
+        saveMonitoringState();
     }
     async function checkAndBuyTickets() {
         checkCount++;
@@ -440,16 +480,17 @@
         });
     }
 
-    // --- Bind Events ---
+    // --- Bind Events (add test partial button) ---
     function bindEvents() {
         document.getElementById('etm-close-btn').onclick = function() {
             document.getElementById('eventim-monitor-gui').style.display = 'none';
         };
         document.getElementById('test-webhook-btn').onclick = testWebhook;
         document.getElementById('eyedropper-btn').onclick = startElementSelection;
+        document.getElementById('test-partial-btn').onclick = partialTicketCheck;
         document.getElementById('start-btn').onclick = function() { saveSettingsFromGUI(); startMonitoring(); };
         document.getElementById('stop-btn').onclick = stopMonitoring;
-        document.getElementById('refresh-btn').onclick = function() { window.location.reload(); };
+        document.getElementById('refresh-btn').onclick = function() { saveMonitoringState(); window.location.reload(); };
         document.getElementById('check-interval').onchange = saveSettingsFromGUI;
         document.getElementById('refresh-interval').onchange = saveSettingsFromGUI;
         document.getElementById('discord-interval').onchange = saveSettingsFromGUI;
@@ -461,13 +502,14 @@
         makeDraggable(document.getElementById('eventim-monitor-gui'), document.getElementById('etm-gui-header'));
     }
 
-    // --- Initialization ---
+    // --- Initialization (restore monitoring state) ---
     function init() {
         loadSettings();
         createGUI();
         updateGUI();
         bindEvents();
         highlightSelectedElement();
+        restoreMonitoringState();
     }
 
     if (document.readyState === 'loading') {
